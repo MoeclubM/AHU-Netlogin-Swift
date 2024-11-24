@@ -86,10 +86,24 @@ struct ContentView: View {
         .background(Color.white)  // 背景颜色设为白色
         .cornerRadius(15)  // 设置边角圆润
         .shadow(radius: 10)  // 添加阴影效果
+        .frame(minWidth: 350, maxWidth: 350, minHeight: 450, maxHeight: 450)
+    }
+
+    class RedirectHandler: NSObject, URLSessionDelegate, URLSessionTaskDelegate {
+        // 禁用自动重定向
+        func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
+            print("拦截到跳转:")
+            print("状态码: \(response.statusCode)")
+            if let location = response.value(forHTTPHeaderField: "Location") {
+                print("跳转地址: \(location)")
+            }
+            // 不跟随跳转，返回 nil
+            completionHandler(nil)
+        }
     }
 
     func fetchLoginDetails() {
-        let url = URL(string: "http://192.168.9.9/")!
+        let url = URL(string: "http://192.168.111.111/")!
         
         // 创建一个工作项来处理超时
         let timeoutWorkItem = DispatchWorkItem {
@@ -98,8 +112,12 @@ struct ContentView: View {
         
         // 设置超时为 3 秒
         DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: timeoutWorkItem)
-
-        URLSession.shared.dataTask(with: url) { data, response, error in
+        
+        // 使用自定义会话配置
+        let redirectHandler = RedirectHandler()
+        let session = URLSession(configuration: .default, delegate: redirectHandler, delegateQueue: nil)
+        
+        session.dataTask(with: url) { data, response, error in
             DispatchQueue.main.async {
                 // 超时后如果请求返回，取消超时提示
                 timeoutWorkItem.cancel()
@@ -130,15 +148,32 @@ struct ContentView: View {
                     return
                 }
                 
-                // 提取重定向 URL
-                if let redirectUrl = extractRedirectUrl(from: htmlContent) {
-                    print("Redirect URL: \(redirectUrl)")
-                    ipAddress = extractParameter(from: redirectUrl, paramName: "wlanuserip") ?? ""
-                    macAddress = extractParameter(from: redirectUrl, paramName: "wlanusermac") ?? ""
-                    acName = extractParameter(from: redirectUrl, paramName: "wlanacname") ?? ""
-                    acIp = extractParameter(from: redirectUrl, paramName: "wlanacip") ?? ""
-                } else {
-                    showAlert(title: "HTML 提取失败", message: "网页内容：\n\(htmlContent)")
+                if let httpResponse = response as? HTTPURLResponse {
+                    switch httpResponse.statusCode {
+                    case 200:
+                        print("status: \(htmlContent)")
+                        // 处理200 OK响应
+                        ipAddress = extractParameter(from: htmlContent, paramName: "wlanuserip") ?? ""
+                        macAddress = extractParameter(from: htmlContent, paramName: "wlanusermac") ?? "100000000000" // 默认值全0
+                        acName = extractParameter(from: htmlContent, paramName: "wlanacname") ?? ""
+                        acIp = extractParameter(from: htmlContent, paramName: "wlanacip") ?? ""
+                        print("200 OK - 数据已提取：\(ipAddress), \(macAddress), \(acName), \(acIp)")
+                        
+                    case 302:
+                        if let location = httpResponse.value(forHTTPHeaderField: "Location") {
+                            print("Redirect Location: \(location)")
+                            ipAddress = extractParameter(from: location, paramName: "wlanuserip") ?? ""
+                            macAddress = "000000000000" // 默认值全0
+                            acName = extractParameter(from: location, paramName: "wlanacname") ?? ""
+                            acIp = extractParameter(from: location, paramName: "wlanacip") ?? ""
+                            print("302 Redirect - 数据已提取：\(ipAddress), \(macAddress), \(acName), \(acIp)")
+                        } else {
+                            showAlert(title: "HTML 提取失败", message: "没有找到重定向URL！")
+                        }
+                        
+                    default:
+                        showAlert(title: "获取失败", message: "返回了状态码：\(httpResponse.statusCode)")
+                    }
                 }
             }
         }.resume()
