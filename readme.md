@@ -25,7 +25,7 @@
 ### iPadOS
 ![iPadOS](./.pics/d59a4f7eaa0841bdf1b78cdc90a9b725.png)
 
-iPhone和剩下的由于没设备+懒得下模拟器就不测试了，理论上你自己编译下都能用
+IOS和VisionOS由于没设备+懒得下模拟器就不测试了，理论上你自己编译下都能用
 
 
 ## 原理
