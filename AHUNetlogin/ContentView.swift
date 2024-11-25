@@ -4,91 +4,117 @@ struct ContentView: View {
     @State private var account: String = ""
     @State private var password: String = ""
     @State private var rememberMe: Bool = true
-    @State private var isLoggedIn: Bool = false
     @State private var ipAddress: String = ""
     @State private var macAddress: String = ""
     @State private var acName: String = ""
     @State private var acIp: String = ""
-
+    
     // 登录 URL 模板
     let loginUrlTemplate = "http://172.16.253.3:801/eportal/?c=Portal&a=login&callback=dr1003&login_method=1&user_account=%@&user_password=%@&wlan_user_ip=%@&wlan_user_ipv6=&wlan_user_mac=%@&wlan_ac_ip=%@&wlan_ac_name=%@&jsVersion=3.3.2&v=4946"
     let logoutUrlTemplate = "http://172.16.253.3:801/eportal/?c=Portal&a=logout&callback=dr1004&login_method=1&user_account=drcom&user_password=123&ac_logout=0&register_mode=1&wlan_user_ip=%@&wlan_user_ipv6=&wlan_vlan_id=0&wlan_user_mac=000000000000&wlan_ac_ip=%@&wlan_ac_name=%@&jsVersion=3.3.2&v=3484"
     
     var body: some View {
-        VStack {
-            // 账号输入框
-            Text("账号：")
-                .font(.headline)
-                .foregroundColor(.blue)
-            TextField("请输入账号", text: $account)
+        ZStack {
+            // 背景图片
+            Image("backgroundImage") // 确保图片已添加到项目的 Assets.xcassets 中
+                .resizable()
+                .scaledToFill()
+                .edgesIgnoringSafeArea(.all) // 背景填充整个屏幕
+
+            VStack {
+                // 添加 Logo
+                Image("Logo") // 确保图片已添加到 Assets.xcassets 中
+                    .resizable()
+                    .scaledToFit() // 保持图片比例
+                    .frame(width: 100, height: 100) // 设置图片大小
+                    .padding(.bottom, 20) // 添加与下方内容的间距
+
+                // 账号输入框
+                Text("账号：")
+                    .font(.headline)
+                    .foregroundColor(.blue)
+                TextField("请输入账号", text: $account)
+                    .padding()
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+
+                // 密码输入框
+                Text("密码：")
+                    .font(.headline)
+                    .foregroundColor(.blue)
+                SecureField("请输入密码", text: $password)
+                    .padding()
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+
+                // 记住信息勾选框
+                Toggle("记住信息(此后自动登录)", isOn: $rememberMe)
+                    .padding()
+                    .toggleStyle(SwitchToggleStyle(tint: .blue))
+
+                // 显示 IP 地址、MAC 地址、AC IP 和 AC 名称
+                VStack(alignment: .leading) {
+                    Text("IP 地址：\(ipAddress)")
+                    Text("MAC 地址：\(macAddress)")
+                    Text("AC IP：\(acIp)")
+                    Text("AC 名称：\(acName)")
+                }
                 .padding()
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-            
-            // 密码输入框
-            Text("密码：")
-                .font(.headline)
-                .foregroundColor(.blue)
-            SecureField("请输入密码", text: $password)
-                .padding()
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-            
-            // 记住信息勾选框
-            Toggle("记住信息(此后自动登录)", isOn: $rememberMe)
-                .padding()
-                .toggleStyle(SwitchToggleStyle(tint: .blue))
-            
-            // 显示 IP 地址、MAC 地址、AC IP 和 AC 名称
-            VStack(alignment: .leading) {
-                Text("IP 地址：\(ipAddress)")
-                Text("MAC 地址：\(macAddress)")
-                Text("AC IP：\(acIp)")
-                Text("AC 名称：\(acName)")
+
+                // 登录登出按钮
+                HStack(spacing: 20) {
+                    Button(action: {
+                        login()
+                    }) {
+                        Text("登录")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+
+                    Button(action: {
+                        logout()
+                    }) {
+                        Text("登出")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.red)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+
             }
             .padding()
-            
-            // 登录登出按钮
-            HStack(spacing: 20) {
-                Button("登录") {
-                    login()
-                }
-                .padding()
-                
-                .foregroundColor(.white)
-                .cornerRadius(10)
-                .frame(maxWidth: .infinity)  // 使按钮填充宽度
-                
-                Button("登出") {
-                    logout()
-                }
-                .padding()
-                
-                .foregroundColor(.white)
-                .cornerRadius(10)
-                .frame(maxWidth: .infinity)  // 使按钮填充宽度
-            }
-            
-            // 登录状态提示
-            if isLoggedIn {
-                Text("已登录")
-                    .foregroundColor(.green)
-                    .fontWeight(.bold)
-            } else {
-                Text("未登录")
-                    .foregroundColor(.red)
-                    .fontWeight(.bold)
-            }
+            .background(
+                Color.white.opacity(0.8) // 半透明背景
+            )
+            .cornerRadius(15) // 边角圆润
+            .shadow(radius: 10) // 添加阴影效果
+            .frame(minWidth: 350, maxWidth: 350, minHeight: 450, maxHeight: 450)
         }
-        .padding()
         .onAppear {
             // 获取网络信息并自动登录
             fetchLoginDetails()
+            loadCredentials()
         }
-        .background(Color.white)  // 背景颜色设为白色
-        .cornerRadius(15)  // 设置边角圆润
-        .shadow(radius: 10)  // 添加阴影效果
-        .frame(minWidth: 350, maxWidth: 350, minHeight: 450, maxHeight: 450)
     }
-
+    
+    
+    func loadCredentials() {
+        if let savedAccount = UserDefaults.standard.string(forKey: "Account"),
+           let savedPassword = UserDefaults.standard.string(forKey: "Password") {
+            account = savedAccount
+            password = savedPassword
+        }
+    }
+    
+    func saveCredentials() {
+        UserDefaults.standard.set(account, forKey: "Account")
+        UserDefaults.standard.set(password, forKey: "Password")
+    }
     class RedirectHandler: NSObject, URLSessionDelegate, URLSessionTaskDelegate {
         // 禁用自动重定向
         func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
@@ -101,7 +127,7 @@ struct ContentView: View {
             completionHandler(nil)
         }
     }
-
+    
     func fetchLoginDetails() {
         let url = URL(string: "http://192.168.111.111/")!
         
@@ -178,7 +204,7 @@ struct ContentView: View {
             }
         }.resume()
     }
-
+    
     func login() {
         guard !account.isEmpty, !password.isEmpty else {
             showAlert(title: "登录失败", message: "请输入账号和密码！")
@@ -197,7 +223,6 @@ struct ContentView: View {
                 if let error = error {
                     showAlert(title: "登录失败", message: "请求失败: \(error.localizedDescription)")
                 } else if let data = data, let responseString = String(data: data, encoding: .utf8), responseString.contains("\"result\":\"1\"") {
-                    isLoggedIn = true
                     showAlert(title: "登录成功", message: "您已成功登录！")
                     if rememberMe {
                         saveCredentials()
@@ -208,7 +233,7 @@ struct ContentView: View {
             }
         }.resume()
     }
-
+    
     func logout() {
         let urlString = String(format: logoutUrlTemplate, ipAddress, acIp, acName)
         guard let url = URL(string: urlString) else {
@@ -221,7 +246,6 @@ struct ContentView: View {
                 if let error = error {
                     showAlert(title: "登出失败", message: "请求失败: \(error.localizedDescription)")
                 } else {
-                    isLoggedIn = false
                     showAlert(title: "成功", message: "登出成功！")
                 }
             }
@@ -238,7 +262,7 @@ struct ContentView: View {
         }
         return nil
     }
-
+    
     // 提取指定参数的值
     func extractParameter(from url: String, paramName: String) -> String? {
         let pattern = "\(paramName)=([^&]*)"
@@ -270,16 +294,12 @@ struct ContentView: View {
 #endif
     }
     
-    // 保存账号密码
-    func saveCredentials() {
-        UserDefaults.standard.set(account, forKey: "Account")
-        UserDefaults.standard.set(password, forKey: "Password")
+    
+    
+    struct ContentView_Previews: PreviewProvider {
+        static var previews: some View {
+            ContentView()
+        }
     }
+    
 }
-
-struct ContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        ContentView()
-    }
-}
-

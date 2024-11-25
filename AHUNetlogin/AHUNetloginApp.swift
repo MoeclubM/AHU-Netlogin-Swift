@@ -12,9 +12,15 @@ struct AHUNetloginApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+            .onAppear {
                 #if os(macOS)
-                .frame(minWidth: 450, maxWidth: 500, minHeight: 450, maxHeight: 480) // 限制窗口的大小范围
+                if let window = NSApplication.shared.windows.first {
+                    window.styleMask.remove(.resizable) // 禁用窗口大小调整
+                    window.setContentSize(NSSize(width: 430, height: 650)) // 设置窗口默认大小
+
+                }
                 #endif
+            }
         }
     }
 }
