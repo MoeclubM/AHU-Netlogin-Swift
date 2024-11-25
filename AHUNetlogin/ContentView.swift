@@ -51,11 +51,30 @@ struct ContentView: View {
                     .toggleStyle(SwitchToggleStyle(tint: .blue))
 
                 // 显示 IP 地址、MAC 地址、AC IP 和 AC 名称
-                VStack(alignment: .leading) {
-                    Text("IP 地址：\(ipAddress)")
-                    Text("MAC 地址：\(macAddress)")
-                    Text("AC IP：\(acIp)")
-                    Text("AC 名称：\(acName)")
+                VStack(alignment: .leading, spacing: 10) { // 添加适当的行间距
+                    HStack {
+                        Text("IP 地址：")
+                        Text(ipAddress.isEmpty ? "未获取到数据" : ipAddress) // 如果 ipAddress 为空则显示占位文字
+                            .foregroundColor(ipAddress.isEmpty ? .gray : .primary) // 占位文字显示为灰色
+                    }
+                    
+                    HStack {
+                        Text("MAC 地址：")
+                        Text(macAddress.isEmpty ? "未获取到数据" : macAddress)
+                            .foregroundColor(macAddress.isEmpty ? .gray : .primary)
+                    }
+                    
+                    HStack {
+                        Text("AC IP：")
+                        Text(acIp.isEmpty ? "未获取到数据" : acIp)
+                            .foregroundColor(acIp.isEmpty ? .gray : .primary)
+                    }
+                    
+                    HStack {
+                        Text("AC 名称：")
+                        Text(acName.isEmpty ? "未获取到数据" : acName)
+                            .foregroundColor(acName.isEmpty ? .gray : .primary)
+                    }
                 }
                 .padding()
 
@@ -99,6 +118,7 @@ struct ContentView: View {
             // 获取网络信息并自动登录
             fetchLoginDetails()
             loadCredentials()
+            
         }
     }
     
@@ -134,6 +154,7 @@ struct ContentView: View {
         // 创建一个工作项来处理超时
         let timeoutWorkItem = DispatchWorkItem {
             showAlert(title: "网络连接超时", message: "请求超过 3 秒未响应，可能未连接校园网或已登录")
+            return
         }
         
         // 设置超时为 3 秒
@@ -177,12 +198,13 @@ struct ContentView: View {
                 if let httpResponse = response as? HTTPURLResponse {
                     switch httpResponse.statusCode {
                     case 200:
-                        print("status: \(htmlContent)")
                         // 处理200 OK响应
                         ipAddress = extractParameter(from: htmlContent, paramName: "wlanuserip") ?? ""
-                        macAddress = extractParameter(from: htmlContent, paramName: "wlanusermac") ?? "100000000000" // 默认值全0
-                        acName = extractParameter(from: htmlContent, paramName: "wlanacname") ?? ""
+                        macAddress = extractParameter(from: htmlContent, paramName: "wlanusermac")?.replacingOccurrences(of: "-", with: "") ?? "000000000000"
+                        acName = extractParameter(from: htmlContent, paramName: "wlanacname")?
+                            .trimmingCharacters(in: CharacterSet(charactersIn: "\"</>").union(.whitespacesAndNewlines)) ?? "" // 清理特殊字符
                         acIp = extractParameter(from: htmlContent, paramName: "wlanacip") ?? ""
+                        
                         print("200 OK - 数据已提取：\(ipAddress), \(macAddress), \(acName), \(acIp)")
                         
                     case 302:
@@ -222,6 +244,7 @@ struct ContentView: View {
             DispatchQueue.main.async {
                 if let error = error {
                     showAlert(title: "登录失败", message: "请求失败: \(error.localizedDescription)")
+                    return
                 } else if let data = data, let responseString = String(data: data, encoding: .utf8), responseString.contains("\"result\":\"1\"") {
                     showAlert(title: "登录成功", message: "您已成功登录！")
                     if rememberMe {
@@ -229,6 +252,7 @@ struct ContentView: View {
                     }
                 } else {
                     showAlert(title: "登录失败", message: "未知错误！")
+                    return
                 }
             }
         }.resume()
@@ -262,15 +286,11 @@ struct ContentView: View {
         }
         return nil
     }
-    
-    // 提取指定参数的值
-    func extractParameter(from url: String, paramName: String) -> String? {
-        let pattern = "\(paramName)=([^&]*)"
-        if let regex = try? NSRegularExpression(pattern: pattern, options: []),
-           let match = regex.firstMatch(in: url, options: [], range: NSRange(location: 0, length: url.utf16.count)) {
-            if let range = Range(match.range(at: 1), in: url) {
-                return String(url[range])
-            }
+    func extractParameter(from html: String, paramName: String) -> String? {
+        let pattern = "\(paramName)=([^&\"]+)" // 匹配参数名=值
+        if let range = html.range(of: pattern, options: .regularExpression) {
+            let match = String(html[range])
+            return match.components(separatedBy: "=").last
         }
         return nil
     }
